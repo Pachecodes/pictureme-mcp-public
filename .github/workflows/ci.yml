@@ -32,7 +32,9 @@ jobs:
       - run: python -m pip install approved-wheelhouse/pictureme_cli-*.whl
       - run: python -m pip install '.[dev]'
       - run: python -m pip check
-      - run: python -m pytest -q
+      # Test this package, not the dependency checkout's CLI suite.
+      # Our upload-boundary tests still exercise the approved shared client.
+      - run: python -m pytest -q tests
       - run: python -m build
       # No dependency re-resolution/replacement during reinstall.
       - run: python -m pip install --force-reinstall --no-deps dist/*.whl
