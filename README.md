@@ -1,17 +1,38 @@
-# pictureme-mcp
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pictureme-lockup-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/pictureme-lockup-light.svg">
+  <img src="docs/assets/pictureme-lockup-light.svg" alt="PictureME" width="420">
+</picture>
 
-Stdio Model Context Protocol client for the hosted PictureME API, maintained by **Jesus Pacheco / Akitá Labs**. Reuses the separately packaged `pictureme-cli` HTTP client. This is not a self-hosted backend.
+# PictureME MCP
+
+Let a compatible AI assistant use PictureME tools: discover image and video
+models, upload local reference media, submit generation jobs, and check job
+status and credit balances. This is a local tool bridge to the hosted PictureME
+API, not a model runner or a self-hosted backend.
+
+## Who is it for?
+
+People using an MCP-capable assistant and developers connecting assistants to
+PictureME. MCP means **Model Context Protocol**: a standard way for an assistant
+to call tools. This server communicates through standard input/output (stdio),
+so your MCP host launches it as a local process.
+
+**MCP or CLI?** Use this bridge for assistant tool calls. Use the
+[PictureME CLI](https://github.com/Pachecodes/pictureme-cli-public) for commands
+you type in a terminal or run in scripts. MCP reuses that CLI's HTTP client.
+
+## How it works
+
+![Workflow diagram: an assistant calls the local MCP bridge and shared CLI client to reach PictureME, with user approval before uploads or paid jobs](docs/assets/mcp-workflow.svg)
+
+*Explanatory diagram, not a screenshot. Your host must enforce approval;
+this bridge does not automatically ask permission before a tool call.*
 
 ## Install
 
-Python 3.10+. Public target: https://github.com/Pachecodes/pictureme-mcp-public.
-The shared CLI must be installed from an **approved artifact first**. These
-repository names are publication targets, not a claim that they already exist.
-No package-index publication or ownership is asserted; do not install a package
-by name from an index and assume it is ours.
-
-From an approved standalone MCP checkout, install a maintainer-reviewed CLI wheel
-whose SHA-256 you have verified against the release record:
+Requires **Python 3.10+** and an approved CLI artifact installed first.
+From a reviewed MCP checkout, use a fresh environment:
 
 ```bash
 python -m venv .venv
@@ -21,26 +42,14 @@ python -m pip install .
 python -m pip check
 ```
 
-Alternatively, after the public CLI repository is available, use its reviewed
-immutable commit (replace `APPROVED_CLI_COMMIT` with the actual approved SHA):
+Replace the wheel path with your reviewed, SHA-256-verified artifact. Do not assume
+an index package with the same name is ours. [Installation](docs/installation.md)
+covers pinned commits, wheel-only installs and dependency-replacement hazards.
 
-```bash
-python -m pip install "pictureme-cli @ git+https://github.com/Pachecodes/pictureme-cli-public.git@APPROVED_CLI_COMMIT"
-python -m pip install .
-```
+## Connect your assistant
 
-Use a fresh venv, keep the approved CLI installed, and do not use `--upgrade` or
-`--force-reinstall` on MCP with dependency resolution: that can replace the CLI
-with an unrelated index package. Dependencies other than the shared CLI are
-ordinary separately licensed packages. For wheel-only installation, install the
-approved CLI wheel first and then the approved MCP wheel. CI explicitly checks
-out the corresponding public CLI repository, builds it and installs that wheel
-before MCP; it does not assume `pictureme-cli` exists on PyPI. Maintainers must
-review both exact Git SHAs and wheel digests before accepting a release.
-
-## Configure
-
-First run `pictureme auth login` in a trusted terminal. Configure your MCP host with the absolute executable path appropriate to your own installation:
+Run `pictureme auth login` in a trusted terminal and approve it in your browser.
+Add this to your host's MCP configuration, replacing the executable path:
 
 ```json
 {
@@ -53,23 +62,40 @@ First run `pictureme auth login` in a trusted terminal. Configure your MCP host 
 }
 ```
 
-Alternatively inject `PICTUREME_API_KEY` via a secret manager into the process environment. Do not store a real key in committed MCP JSON. The server uses the CLI's platformdirs config and credential protections; POSIX persisted keys are mode-0600 plaintext, not encrypted. Non-POSIX persistence is refused. Authenticated operations require an account, appropriate scopes, service access and credits. Client MIT licensing does not grant any of those.
+Your host starts the bridge. Never put a real API key in committed JSON.
+See [configuration and credentials](docs/configuration.md) for safe alternatives.
 
-## Tools and authorization
+## Example: find an image model
 
-- `pictureme_model_list`, `pictureme_model_get`: catalog/schema reads.
-- `pictureme_upload_file`: uploads a **local file**, not a remote URL. This discloses its contents to the service. Restrict the agent's filesystem permissions.
-- `pictureme_generate_create`: submits a paid generation; require explicit user authorization.
-- `pictureme_generate_get`, `pictureme_generate_list`, `pictureme_generate_wait`: job reads/polling.
-- `pictureme_generate_cancel`: cancellation request, not a guaranteed provider stop or refund.
-- `pictureme_generate_cost`: local catalog-based estimate, NOT an authoritative quote; pricing rules may be more complex and billing is server-owned.
-- `pictureme_token_balance`, `pictureme_token_transactions`: account reads requiring service permission.
+Ask your assistant: **“List PictureME image models. Do not upload anything or
+create a generation.”** It can call `pictureme_model_list(image_only=true)`
+then `pictureme_model_get(model_id=...)` to inspect a chosen model's inputs.
+This example reads the catalog; it does not spend generation credits.
 
-Read tools can expose private account/job data to the MCP host. Use only trusted hosts and agents. There is no admin tool. Server authorization still applies. Never assume balance proves a job is affordable or cancellation means a refund. Read catalog/schema, present a nonbinding estimate, obtain approval before upload or paid submission, and inspect final status. API errors are returned without raw error bodies. All shared-client redirects
-are disabled; 3xx responses fail without forwarding passwords, device exchange
-codes or media to the redirect target.
+For generation, have the assistant present a nonbinding estimate and the exact
+prompt/media first. Approve uploads and paid submission explicitly, then inspect
+the final job status. See the [tool and authorization guide](docs/tools.md).
 
-## Development and license
+## Account, credits and privacy
 
-Install the approved CLI package, then `python -m pip install -e '.[dev]'`.
-Run `python -m pytest -q` and `python -m build`. Tests are offline and use no paid generation. See SECURITY.md, CONTRIBUTING.md and PROVENANCE.md. MIT applies to original clients only, not the hosted service, dependencies, models, trademarks or media.
+Authenticated tools need a PictureME account, service access, scopes and credits.
+Paid generation spends credits; cancellation guarantees neither a stop nor a
+refund. Local-file uploads disclose their contents. Read tools can share private
+account/job data with your assistant: use only trusted hosts and restrict files.
+Saved POSIX credentials are mode-0600 plaintext, not encrypted. No admin tool is
+exposed. MIT licensing grants neither service access nor credits.
+
+## Documentation
+
+- [Manual and reading guide](docs/README.md)
+- [Installation](docs/installation.md) and [host configuration](docs/configuration.md)
+- [Tools, estimates and authorization](docs/tools.md)
+- [Development and offline tests](docs/development.md)
+- [Brand assets and rights](docs/brand-assets.md)
+
+## Project and license
+
+Maintained by **Jesus Pacheco / Akitá Labs**.
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) ·
+[Provenance](PROVENANCE.md) · [MIT code license](LICENSE).
+Logo/trademark rights and hosted-service terms are separate from the code license.
