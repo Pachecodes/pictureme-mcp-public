@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pictureme-mcp"
+version = "0.1.0"
+description = "Model Context Protocol server exposing the PictureME v3 generation API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Jesus Pacheco / Akitá Labs" }]
+dependencies = [
+    "mcp>=1.2,<2",
+    # Reuse the CLI's HTTP client + config loader. The CLI package ships the
+    # auth.py, client.py, config.py and models.py we need; sharing keeps the
+    # two surfaces from drifting.
+    "pictureme-cli>=0.1.0,<0.2",
+]
+
+[project.scripts]
+pictureme-mcp = "pictureme_mcp.server:main"
+
+[tool.setuptools.packages.find]
+include = ["pictureme_mcp*"]
+
+[project.urls]
+Repository = "https://github.com/Pachecodes/pictureme-mcp-public"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "build>=1.2"]
